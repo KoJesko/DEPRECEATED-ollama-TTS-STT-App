@@ -1,4 +1,4 @@
-# This code is depreceated, is not maintained, may contain security vulnerabilities, and is not likely to work fully.
+# This code is depreceated, is not maintained, may contain security vulnerabilities, and is not likely to work fully. A new version using Hugging Face Transformers will come out soon.
 
 # 🎙️ Ollama STT (Speech-to-Text) Application
 
