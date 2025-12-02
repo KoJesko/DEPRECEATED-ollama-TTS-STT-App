@@ -1,3 +1,5 @@
+# This code is depreceated, is not maintained, may contain security vulnerabilities, and is not likely to work fully.
+
 # 🎙️ Ollama STT (Speech-to-Text) Application
 
 ![Python](https://img.shields.io/badge/python-3.7+-blue.svg)
