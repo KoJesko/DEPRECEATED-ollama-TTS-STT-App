@@ -5,6 +5,7 @@ A beautiful web interface for the Ollama Speech-to-Text application
 """
 
 import os
+import re
 import sys
 import json
 import threading
@@ -88,6 +89,7 @@ if not check_and_install_dependencies():
 # Now import Flask and other modules after ensuring dependencies are installed
 try:
     from flask import Flask, render_template, request, jsonify, send_from_directory
+    from werkzeug.utils import secure_filename
     import speech_recognition as sr
     import tempfile
     import base64
@@ -101,7 +103,9 @@ app = Flask(__name__)
 
 # Configuration
 PORT = 55667
-HOST = '0.0.0.0'  # Bind to all interfaces for Docker compatibility
+HOST = os.environ.get('HOST', '0.0.0.0')  # All interfaces for Docker; set HOST=127.0.0.1 for local-only
+# Never enable the Werkzeug debugger on a network-facing server (it allows code execution)
+DEBUG = os.environ.get('FLASK_DEBUG') == '1'
 UPLOAD_FOLDER = 'uploads'
 TRANSCRIPTION_FOLDER = 'transcriptions'
 
@@ -225,7 +229,8 @@ def upload_audio():
             return jsonify({"success": False, "error": "No file selected"})
         
         # Save uploaded file
-        filename = f"upload_{int(time.time())}_{file.filename}"
+        # secure_filename strips path components so the upload cannot escape UPLOAD_FOLDER
+        filename = f"upload_{int(time.time())}_{secure_filename(file.filename) or 'audio'}"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
         
@@ -279,10 +284,15 @@ def forward_to_ollama():
         
         if not text:
             return jsonify({"success": False, "error": "No text provided"})
+
+        # Model names are passed to the ollama CLI; reject anything that could be
+        # parsed as an option (e.g. a value starting with "-").
+        if not isinstance(model, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", model):
+            return jsonify({"success": False, "error": "Invalid model name"})
         
         # Try to run ollama command
         try:
-            cmd = ['ollama', 'run', model, text]
+            cmd = ['ollama', 'run', model, '--', str(text)]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             
             if result.returncode == 0:
@@ -344,4 +354,4 @@ if __name__ == '__main__':
     print("💡 Dependencies will be automatically installed if missing")
     print("=" * 50)
     
-    app.run(host=HOST, port=PORT, debug=True)
+    app.run(host=HOST, port=PORT, debug=DEBUG)
