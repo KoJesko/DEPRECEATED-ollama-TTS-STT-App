@@ -711,6 +711,14 @@
                 `${transcriptionHistory.length} transcriptions`;
         }
 
+        // History entries contain client-supplied values (engine, filename) and
+        // transcribed text, and are shared via /api/history: always escape.
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
         function renderHistory() {
             const container = document.getElementById('history-container');
             
@@ -723,7 +731,7 @@
                 return;
             }
             
-            const historyHTML = transcriptionHistory.map(entry => {
+            const historyHTML = transcriptionHistory.map((entry, index) => {
                 const date = new Date(entry.timestamp);
                 const timeStr = date.toLocaleString();
                 const methodIcon = entry.method === 'microphone' ? '🎤' : '📁';
@@ -731,12 +739,11 @@
                 return `
                     <div class="history-item">
                         <div class="timestamp">${methodIcon} ${timeStr}</div>
-                        <div class="text">${entry.text}</div>
+                        <div class="text">${escapeHtml(entry.text)}</div>
                         <div class="meta">
-                            Engine: ${entry.engine} | Method: ${entry.method}
-                            ${entry.filename ? ` | File: ${entry.filename}` : ''}
-                            <button class="btn" style="margin-left: 10px; padding: 4px 8px; font-size: 12px;" 
-                                    onclick="document.getElementById('ollama-text').value = '${entry.text.replace(/'/g, '\\\'')}'">
+                            Engine: ${escapeHtml(entry.engine)} | Method: ${escapeHtml(entry.method)}
+                            ${entry.filename ? ` | File: ${escapeHtml(entry.filename)}` : ''}
+                            <button class="btn use-in-ollama" data-index="${index}" style="margin-left: 10px; padding: 4px 8px; font-size: 12px;">
                                 Use in Ollama
                             </button>
                         </div>
@@ -745,6 +752,12 @@
             }).join('');
             
             container.innerHTML = historyHTML;
+            container.querySelectorAll('.use-in-ollama').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const entry = transcriptionHistory[Number(btn.dataset.index)];
+                    document.getElementById('ollama-text').value = entry ? entry.text : '';
+                });
+            });
         }
 
         async function loadHistory() {
